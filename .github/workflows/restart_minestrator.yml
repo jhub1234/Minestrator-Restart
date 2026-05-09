@@ -2,11 +2,11 @@ name: Minestrator-Restart
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 1 * * *'
-    - cron: '0 5 * * *'
-    - cron: '0 9 * * *'
-    - cron: '0 13 * * *'
+  #schedule:
+    #- cron: '0 1 * * *'
+    #- cron: '0 5 * * *'
+    #- cron: '0 9 * * *'
+    #- cron: '0 13 * * *'
   # --- 新增：接收来自 Uptime Kuma 的 Webhook 信号 ---
   repository_dispatch:
     types: [tunnel_offline]
