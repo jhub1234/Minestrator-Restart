@@ -3,85 +3,56 @@ name: Minestrator-Restart
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 1 * * *'   # 北京时间 09:00
-    - cron: '0 5 * * *'   # 北京时间 13:00
-    - cron: '0 9 * * *'   # 北京时间 17:00
-    - cron: '0 13 * * *'  # 北京时间 21:00
+    - cron: '0 1 * * *'
+    - cron: '0 5 * * *'
+    - cron: '0 9 * * *'
+    - cron: '0 13 * * *'
 
 jobs:
   run_minestrator_restart:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥 下载代码
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🐍 设置 Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: 🛡️ 启动 Xray 代理转发
+      - name: Start Xray Proxy
         env:
           XRAY_CONFIG: ${{ secrets.XRAY_CONFIG_JSON }}
         run: |
-          echo "📦 下载并解压 Xray-core..."
           wget -q https://github.com/XTLS/Xray-core/releases/download/v25.12.8/Xray-linux-64.zip
           unzip -q Xray-linux-64.zip -d xray-core
-          
-          echo "📝 写入节点配置..."
           echo "$XRAY_CONFIG" > xray-core/config.json
-          
-          echo "🚀 启动 Xray 服务..."
           cd xray-core
           nohup ./xray run -c config.json > xray.log 2>&1 &
-          
-          echo "⏳ 等待代理就绪..."
-          sleep 8
-          
-          echo "✅ 测试代理连通性..."
-          # 验证代理是否真的拿到了出口 IP
-          PROXY_IP=$(curl -s -x http://127.0.0.1:8080 https://api.ipify.org || echo "FAILED")
-          echo "代理出口 IP: $PROXY_IP"
-          if [ "$PROXY_IP" == "FAILED" ]; then
-            echo "❌ 代理启动失败，查看日志："
-            cat xray.log
-            exit 1
-          fi
+          sleep 10
 
-      - name: 🛠️ 安装系统依赖
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb x11-utils xdotool scrot
-
-      - name: 🐍 安装 Python 依赖
-        run: |
           pip install seleniumbase
           seleniumbase install chromedriver
           seleniumbase install chrome
 
-      - name: 🚀 运行脚本
+      - name: Run Script
         env:
           PYTHONIOENCODING: utf-8
           MINESTRATOR_ACCOUNT: ${{ secrets.MINESTRATOR_ACCOUNT }}
           MINESTRATOR_SERVER_ID: ${{ secrets.MINESTRATOR_SERVER_ID }}
           MINESTRATOR_AUTH: ${{ secrets.MINESTRATOR_AUTH }}
           TG_BOT: ${{ secrets.TG_BOT }}
-          # 注入全局代理环境变量
           HTTP_PROXY: http://127.0.0.1:8080
           HTTPS_PROXY: http://127.0.0.1:8080
-          http_proxy: http://127.0.0.1:8080
-          https_proxy: http://127.0.0.1:8080
         run: |
-          # 1. 再次确认环境中的代理变量
-          echo "Current Proxy: $HTTP_PROXY"
-          
-          # 2. 运行脚本，并尝试通过参数强制 SeleniumBase 使用代理
-          # 如果你的脚本内部使用了 SB()，这会强制覆盖其设置
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
           python restart_minestrator.py --proxy=http://127.0.0.1:8080
 
-      - name: 📸 上传截图（调试用）
+      - name: Upload Screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
