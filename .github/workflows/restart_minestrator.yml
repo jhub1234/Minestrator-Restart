@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 🛡️ 启动 Xray 代理转发 (VMess 协议)
+      - name: 🛡️ 启动 Xray 代理转发
         env:
           XRAY_CONFIG: ${{ secrets.XRAY_CONFIG_JSON }}
         run: |
@@ -36,13 +36,18 @@ jobs:
           cd xray-core
           nohup ./xray run -c config.json > xray.log 2>&1 &
           
-          echo "⏳ 等待代理启动..."
-          sleep 5
+          echo "⏳ 等待代理就绪..."
+          sleep 8
           
-          echo "✅ 测试代理连通性并获取出口 IP..."
-          # 如果你的节点有效，这里会显示代理服务器的 IP
-          curl -s -L -x http://127.0.0.1:8080 https://api.ipify.org || (echo "❌ 代理连接失败" && cat xray.log && exit 1)
-          echo "" 
+          echo "✅ 测试代理连通性..."
+          # 验证代理是否真的拿到了出口 IP
+          PROXY_IP=$(curl -s -x http://127.0.0.1:8080 https://api.ipify.org || echo "FAILED")
+          echo "代理出口 IP: $PROXY_IP"
+          if [ "$PROXY_IP" == "FAILED" ]; then
+            echo "❌ 代理启动失败，查看日志："
+            cat xray.log
+            exit 1
+          fi
 
       - name: 🛠️ 安装系统依赖
         run: |
@@ -61,12 +66,20 @@ jobs:
           MINESTRATOR_ACCOUNT: ${{ secrets.MINESTRATOR_ACCOUNT }}
           MINESTRATOR_SERVER_ID: ${{ secrets.MINESTRATOR_SERVER_ID }}
           MINESTRATOR_AUTH: ${{ secrets.MINESTRATOR_AUTH }}
-          # 这里确保 Python 使用 8080 端口的代理
+          TG_BOT: ${{ secrets.TG_BOT }}
+          # 注入全局代理环境变量
           HTTP_PROXY: http://127.0.0.1:8080
           HTTPS_PROXY: http://127.0.0.1:8080
-          TG_BOT: ${{ secrets.TG_BOT }}
+          http_proxy: http://127.0.0.1:8080
+          https_proxy: http://127.0.0.1:8080
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python restart_minestrator.py
+          # 1. 再次确认环境中的代理变量
+          echo "Current Proxy: $HTTP_PROXY"
+          
+          # 2. 运行脚本，并尝试通过参数强制 SeleniumBase 使用代理
+          # 如果你的脚本内部使用了 SB()，这会强制覆盖其设置
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+          python restart_minestrator.py --proxy=http://127.0.0.1:8080
 
       - name: 📸 上传截图（调试用）
         if: always()
