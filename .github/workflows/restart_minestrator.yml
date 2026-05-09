@@ -7,6 +7,9 @@ on:
     - cron: '0 5 * * *'
     - cron: '0 9 * * *'
     - cron: '0 13 * * *'
+  # --- 新增：接收来自 Uptime Kuma 的 Webhook 信号 ---
+  repository_dispatch:
+    types: [tunnel_offline]
 
 jobs:
   run_minestrator_restart:
@@ -49,6 +52,8 @@ jobs:
           TG_BOT: ${{ secrets.TG_BOT }}
           HTTP_PROXY: http://127.0.0.1:8080
           HTTPS_PROXY: http://127.0.0.1:8080
+          # 将 Webhook 传来的状态映射为环境变量，方便 Python 脚本读取（可选）
+          KUMA_STATUS: ${{ github.event.client_payload.status }}
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
           python restart_minestrator.py --proxy=http://127.0.0.1:8080
